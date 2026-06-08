@@ -75,9 +75,9 @@ export default function DashboardPage() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-description">Overview of your chart automation pipeline</p>
         </div>
-        <a href="/capture" className="btn btn-primary">
+        <Link href="/capture" className="btn btn-primary">
           📸 New Capture
-        </a>
+        </Link>
       </div>
 
       {/* Error Banner */}
@@ -167,7 +167,7 @@ export default function DashboardPage() {
         {recentPosts.length > 0 ? (
           <div className="post-list">
             {recentPosts.map((post) => (
-              <a key={post.id} href={`/posts/${post.id}`} style={{ textDecoration: "none" }}>
+              <Link key={post.id} href={`/posts/${post.id}`} style={{ textDecoration: "none" }}>
                 <div className="post-card" id={`post-${post.id}`}>
                   <div
                     className="post-card-thumb"
@@ -198,16 +198,16 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         ) : (
           <div className="empty-state">
             <div className="empty-state-icon">📭</div>
             <p>No posts yet. Start by capturing a chart!</p>
-            <a href="/capture" className="btn btn-primary" style={{ marginTop: "var(--space-md)" }}>
+            <Link href="/capture" className="btn btn-primary" style={{ marginTop: "var(--space-md)" }}>
               📸 Capture First Chart
-            </a>
+            </Link>
           </div>
         )}
       </div>

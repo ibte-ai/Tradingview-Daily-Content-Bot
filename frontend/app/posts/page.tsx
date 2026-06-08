@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { postsApi } from "../lib/api";
+import Link from "next/link";
 
 const STATUS_FILTERS = [
   "all", "draft", "capturing", "analyzing", "pending_review",
@@ -38,7 +39,7 @@ export default function PostsPage() {
           <h1 className="page-title">Post Queue</h1>
           <p className="page-description">{total} total posts</p>
         </div>
-        <a href="/capture" className="btn btn-primary">+ New Post</a>
+        <Link href="/capture" className="btn btn-primary">+ New Post</Link>
       </div>
 
       <div className="filters-bar">
@@ -60,7 +61,7 @@ export default function PostsPage() {
       ) : posts.length > 0 ? (
         <div className="post-list">
           {posts.map((post) => (
-            <a key={post.id} href={`/posts/${post.id}`} style={{ textDecoration: "none" }}>
+            <Link key={post.id} href={`/posts/${post.id}`} style={{ textDecoration: "none" }}>
               <div className="post-card" id={`post-card-${post.id}`}>
                 <div
                   className="post-card-thumb"
@@ -98,7 +99,7 @@ export default function PostsPage() {
                   )}
                 </div>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       ) : (

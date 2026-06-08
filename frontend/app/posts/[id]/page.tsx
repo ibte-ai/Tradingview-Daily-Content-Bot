@@ -5,6 +5,13 @@ import { useParams } from "next/navigation";
 import { postsApi } from "../../lib/api";
 import Link from "next/link";
 
+type PlatformStatus = "idle" | "loading" | "success" | "error";
+
+interface PlatformState {
+  status: PlatformStatus;
+  message?: string;
+}
+
 export default function PostDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -13,8 +20,13 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [caption, setCaption] = useState("");
-  const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
+
+  const [platformStates, setPlatformStates] = useState<Record<string, PlatformState>>({
+    facebook: { status: "idle" },
+    instagram: { status: "idle" },
+    whatsapp: { status: "idle" },
+  });
 
   async function loadPost() {
     try {
@@ -33,7 +45,7 @@ export default function PostDetailPage() {
 
   function showToast(message: string, type: string) {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   }
 
   async function handleSaveCaption() {
@@ -57,16 +69,69 @@ export default function PostDetailPage() {
     }
   }
 
-  async function handlePublish(platforms: string[]) {
-    setPublishing(true);
+  async function handlePublishPlatform(platform: string) {
+    setPlatformStates((prev) => ({
+      ...prev,
+      [platform]: { status: "loading" },
+    }));
+
     try {
-      const result = await postsApi.publish(id, platforms);
-      showToast(result.message, "success");
-      setTimeout(loadPost, 3000);
+      const result = await postsApi.publishDirect(id, [platform]);
+      const platformResult = result.results[platform];
+
+      if (platformResult?.status === "success") {
+        setPlatformStates((prev) => ({
+          ...prev,
+          [platform]: { status: "success", message: `Published to ${platform}` },
+        }));
+        showToast(`Published to ${platform}!`, "success");
+      } else {
+        setPlatformStates((prev) => ({
+          ...prev,
+          [platform]: { status: "error", message: platformResult?.errorMessage || "Failed" },
+        }));
+        showToast(`Failed to publish to ${platform}`, "error");
+      }
+
+      loadPost();
     } catch (err: any) {
+      setPlatformStates((prev) => ({
+        ...prev,
+        [platform]: { status: "error", message: err.message },
+      }));
       showToast(err.message, "error");
-    } finally {
-      setPublishing(false);
+    }
+  }
+
+  async function handlePublishAll() {
+    const platforms = ["facebook", "instagram", "whatsapp"];
+    for (const p of platforms) {
+      setPlatformStates((prev) => ({ ...prev, [p]: { status: "loading" } }));
+    }
+
+    try {
+      const result = await postsApi.publishDirect(id, platforms);
+
+      for (const p of platforms) {
+        const r = result.results[p];
+        setPlatformStates((prev) => ({
+          ...prev,
+          [p]: r?.status === "success"
+            ? { status: "success", message: `Published to ${p}` }
+            : { status: "error", message: r?.errorMessage || "Failed" },
+        }));
+      }
+
+      showToast(result.message, result.status === "published" ? "success" : "warning");
+      loadPost();
+    } catch (err: any) {
+      for (const p of platforms) {
+        setPlatformStates((prev) => ({
+          ...prev,
+          [p]: { status: "error", message: err.message },
+        }));
+      }
+      showToast(err.message, "error");
     }
   }
 
@@ -89,6 +154,8 @@ export default function PostDetailPage() {
   }
 
   const analysis = post.ai_analysis;
+  const isPublishable = ["approved", "pending_review", "partially_published"].includes(post.status);
+  const anyPublishing = Object.values(platformStates).some((s) => s.status === "loading");
 
   return (
     <div>
@@ -106,15 +173,18 @@ export default function PostDetailPage() {
           {post.status === "pending_review" && (
             <button className="btn btn-success" onClick={handleApprove} id="btn-approve">✓ Approve</button>
           )}
-          {["approved", "partially_published"].includes(post.status) && (
-            <>
-              <button className="btn btn-primary" onClick={() => handlePublish(["facebook", "instagram"])} disabled={publishing} id="btn-publish-all">
-                {publishing ? "Publishing..." : "🚀 Publish All"}
-              </button>
-            </>
+          {isPublishable && (
+            <button className="btn btn-primary" onClick={handlePublishAll} disabled={anyPublishing} id="btn-publish-all">
+              {anyPublishing ? "Publishing..." : "🚀 Publish All"}
+            </button>
           )}
           {post.status === "failed" && (
             <button className="btn btn-secondary" onClick={handleRetry} id="btn-retry">🔄 Retry</button>
+          )}
+          {post.status === "draft" && (
+            <Link href={`/posts/${id}/draft`} className="btn btn-primary" id="btn-process-draft">
+              📸 Process Draft
+            </Link>
           )}
         </div>
       </div>
@@ -225,6 +295,11 @@ export default function PostDetailPage() {
                     View Post →
                   </a>
                 )}
+                {data.shareLink && (
+                  <a href={data.shareLink} target="_blank" rel="noopener" style={{ display: "block", fontSize: "0.8rem", marginTop: "var(--space-sm)" }}>
+                    Open WhatsApp Share →
+                  </a>
+                )}
                 {data.errorMessage && (
                   <p style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "var(--space-sm)" }}>{data.errorMessage}</p>
                 )}
@@ -235,20 +310,77 @@ export default function PostDetailPage() {
       )}
 
       {/* Platform Publish Buttons */}
-      {["approved", "partially_published"].includes(post.status) && (
+      {isPublishable && (
         <div className="card" style={{ marginTop: "var(--space-lg)" }}>
           <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>Publish to Platform</h3>
-          <div style={{ display: "flex", gap: "var(--space-md)" }}>
-            <button className="btn btn-secondary" onClick={() => handlePublish(["facebook"])} disabled={publishing} id="btn-publish-fb">
-              <span className="platform-icon platform-facebook">f</span> Facebook
+          <div style={{ display: "flex", gap: "var(--space-md)", flexWrap: "wrap" }}>
+            {/* Facebook */}
+            <button
+              className={`btn ${platformStates.facebook.status === "success" ? "btn-success" : platformStates.facebook.status === "error" ? "btn-danger" : "btn-secondary"}`}
+              onClick={() => handlePublishPlatform("facebook")}
+              disabled={platformStates.facebook.status === "loading"}
+              id="btn-publish-fb"
+            >
+              {platformStates.facebook.status === "loading" ? (
+                <><div className="loading-spinner" style={{ width: 16, height: 16 }} /> Publishing...</>
+              ) : platformStates.facebook.status === "success" ? (
+                "✅ Facebook Published"
+              ) : platformStates.facebook.status === "error" ? (
+                "❌ Facebook — Retry"
+              ) : (
+                <><span className="platform-icon platform-facebook">f</span> Facebook</>
+              )}
             </button>
-            <button className="btn btn-secondary" onClick={() => handlePublish(["instagram"])} disabled={publishing} id="btn-publish-ig">
-              <span className="platform-icon platform-instagram">📷</span> Instagram
+
+            {/* Instagram */}
+            <button
+              className={`btn ${platformStates.instagram.status === "success" ? "btn-success" : platformStates.instagram.status === "error" ? "btn-danger" : "btn-secondary"}`}
+              onClick={() => handlePublishPlatform("instagram")}
+              disabled={platformStates.instagram.status === "loading"}
+              id="btn-publish-ig"
+            >
+              {platformStates.instagram.status === "loading" ? (
+                <><div className="loading-spinner" style={{ width: 16, height: 16 }} /> Publishing...</>
+              ) : platformStates.instagram.status === "success" ? (
+                "✅ Instagram Published"
+              ) : platformStates.instagram.status === "error" ? (
+                "❌ Instagram — Retry"
+              ) : (
+                <><span className="platform-icon platform-instagram">📷</span> Instagram</>
+              )}
             </button>
-            <button className="btn btn-secondary" onClick={() => handlePublish(["whatsapp"])} disabled={publishing} id="btn-publish-wa">
-              <span className="platform-icon platform-whatsapp">💬</span> WhatsApp
+
+            {/* WhatsApp */}
+            <button
+              className={`btn ${platformStates.whatsapp.status === "success" ? "btn-success" : platformStates.whatsapp.status === "error" ? "btn-danger" : "btn-secondary"}`}
+              onClick={() => handlePublishPlatform("whatsapp")}
+              disabled={platformStates.whatsapp.status === "loading"}
+              id="btn-publish-wa"
+            >
+              {platformStates.whatsapp.status === "loading" ? (
+                <><div className="loading-spinner" style={{ width: 16, height: 16 }} /> Publishing...</>
+              ) : platformStates.whatsapp.status === "success" ? (
+                "✅ WhatsApp Posted"
+              ) : platformStates.whatsapp.status === "error" ? (
+                "❌ WhatsApp — Retry"
+              ) : (
+                <><span className="platform-icon platform-whatsapp">💬</span> WhatsApp</>
+              )}
             </button>
           </div>
+
+          {/* Error messages */}
+          {Object.entries(platformStates).some(([, s]) => s.status === "error") && (
+            <div style={{ marginTop: "var(--space-md)", fontSize: "0.85rem" }}>
+              {Object.entries(platformStates)
+                .filter(([, s]) => s.status === "error")
+                .map(([platform, s]) => (
+                  <p key={platform} style={{ color: "var(--error)", marginBottom: "var(--space-xs)" }}>
+                    {platform}: {s.message}
+                  </p>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -281,7 +413,7 @@ export default function PostDetailPage() {
       {/* Toast */}
       {toast && (
         <div className={`toast ${toast.type}`}>
-          <span>{toast.type === "success" ? "✅" : "❌"}</span>
+          <span>{toast.type === "success" ? "✅" : toast.type === "warning" ? "⚠️" : "❌"}</span>
           <span>{toast.message}</span>
         </div>
       )}

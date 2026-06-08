@@ -15,6 +15,7 @@ import postRoutes from './routes/posts';
 import screenshotRoutes from './routes/screenshots';
 import logRoutes from './routes/logs';
 import settingsRoutes from './routes/settings';
+import draftRoutes from './routes/draft';
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/screenshots', screenshotRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/draft', draftRoutes);
 
 // ─── 404 Handler ───
 app.use((_req, res) => {

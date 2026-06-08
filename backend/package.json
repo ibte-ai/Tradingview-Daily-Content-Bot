@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "lint": "eslint",
     "test": "jest --runInBand --forceExit",
@@ -17,8 +17,8 @@
     "test:error-paths": "jest --testPathPattern=tests/error-paths --runInBand",
     "test:coverage": "jest --coverage --runInBand",
     "test:smoke": "node scripts/smoke-test.js",
-    "migrate": "node dist/db/migrate.js",
-    "seed": "tsx src/db/seed.ts"
+    "migrate": "node scripts/run-migration.js",
+    "seed": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

@@ -72,6 +72,26 @@ export const postsApi = {
     apiFetch<{ message: string }>(`/api/posts/${id}`, {
       method: 'DELETE',
     }),
+
+  /** Synchronous draft processing — captures screenshot, runs AI, returns complete draft */
+  draftProcess: (id: string, chartUrl?: string) =>
+    apiFetch<{ post: any; captions: { facebook: string; instagram: string; whatsapp: string }; message: string }>(
+      `/api/draft/${id}/process`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ chartUrl }),
+      }
+    ),
+
+  /** Synchronous publishing — calls platform APIs directly (no Redis required) */
+  publishDirect: (id: string, platforms: string[], whatsappRecipient?: string) =>
+    apiFetch<{ message: string; results: Record<string, any>; status: string }>(
+      `/api/posts/${id}/publish-direct`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ platforms, whatsappRecipient }),
+      }
+    ),
 };
 
 // ─── Logs API ───

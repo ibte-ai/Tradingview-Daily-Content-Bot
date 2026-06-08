@@ -1,0 +1,28 @@
+{
+  "folders": [
+    {
+      "name": "Backend API",
+      "path": "backend"
+    },
+    {
+      "name": "Frontend Web App",
+      "path": "frontend"
+    },
+    {
+      "name": "Project Configs",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "eslint.workingDirectories": [
+      "./backend",
+      "./frontend"
+    ],
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.next": true,
+      "**/dist": true
+    }
+  }
+}

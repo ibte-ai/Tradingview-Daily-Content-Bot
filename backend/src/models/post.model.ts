@@ -82,6 +82,7 @@ export type UpdatePostRequest = z.infer<typeof UpdatePostSchema>;
 // ─── Publish Request ───
 export const PublishRequestSchema = z.object({
   platforms: z.array(z.enum(['facebook', 'instagram', 'whatsapp'])).min(1),
+  whatsappRecipient: z.string().optional(),
 });
 
 export type PublishRequest = z.infer<typeof PublishRequestSchema>;

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { postsApi } from "../lib/api";
 
 export default function CapturePage() {
+  const router = useRouter();
   const [symbol, setSymbol] = useState("");
   const [chartUrl, setChartUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
 
   const popularSymbols = ["BTCUSD", "ETHUSD", "XAUUSD", "SPX500", "EURUSD", "AAPL", "TSLA", "NVDA"];
@@ -20,7 +21,6 @@ export default function CapturePage() {
 
     setLoading(true);
     setError("");
-    setResult(null);
 
     try {
       const data = await postsApi.create({
@@ -29,10 +29,12 @@ export default function CapturePage() {
         autoAnalyze: true,
       });
 
-      setResult(data);
+      // Navigate to the draft preview page for synchronous processing
+      if (data.post?.id) {
+        router.push(`/posts/${data.post.id}/draft`);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to create post");
-    } finally {
       setLoading(false);
     }
   }
@@ -59,6 +61,7 @@ export default function CapturePage() {
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && handleCapture()}
+            disabled={loading}
           />
         </div>
 
@@ -70,6 +73,7 @@ export default function CapturePage() {
                 key={s}
                 className={`filter-chip ${symbol === s ? "active" : ""}`}
                 onClick={() => setSymbol(s)}
+                disabled={loading}
               >
                 {s}
               </button>
@@ -86,6 +90,7 @@ export default function CapturePage() {
             placeholder="https://www.tradingview.com/chart/..."
             value={chartUrl}
             onChange={(e) => setChartUrl(e.target.value)}
+            disabled={loading}
           />
           <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-xs)" }}>
             Leave blank to use the default TradingView chart for the symbol
@@ -102,7 +107,7 @@ export default function CapturePage() {
           {loading ? (
             <>
               <div className="loading-spinner" style={{ width: 18, height: 18 }} />
-              Capturing & Analyzing...
+              Creating Post...
             </>
           ) : (
             "📸 Capture & Analyze"
@@ -112,22 +117,6 @@ export default function CapturePage() {
         {error && (
           <div style={{ marginTop: "var(--space-md)", padding: "var(--space-md)", background: "var(--error-bg)", borderRadius: "var(--radius-md)", color: "var(--error)", fontSize: "0.9rem" }}>
             ❌ {error}
-          </div>
-        )}
-
-        {result && (
-          <div style={{ marginTop: "var(--space-md)", padding: "var(--space-md)", background: "var(--success-bg)", borderRadius: "var(--radius-md)", fontSize: "0.9rem" }}>
-            <p style={{ color: "var(--success)", fontWeight: 600 }}>✅ {result.message}</p>
-            <p style={{ color: "var(--text-secondary)", marginTop: "var(--space-sm)" }}>
-              Post ID: <code style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>{result.post?.id}</code>
-            </p>
-            <a
-              href={`/posts/${result.post?.id}`}
-              className="btn btn-secondary btn-sm"
-              style={{ marginTop: "var(--space-md)" }}
-            >
-              View Post →
-            </a>
           </div>
         )}
       </div>
@@ -161,3 +150,4 @@ export default function CapturePage() {
     </div>
   );
 }
+

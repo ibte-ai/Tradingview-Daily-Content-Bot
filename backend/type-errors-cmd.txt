@@ -1,0 +1,27 @@
+error TS6059: File 'F:/PROJECT-1/backend/tests/error-paths/api-failure.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/security/no-secrets-exposed.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/setup.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/ai.service.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/caption.service.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/draft.route.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/publish-direct.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/retry.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'
+error TS6059: File 'F:/PROJECT-1/backend/tests/unit/secrets.test.ts' is not under 'rootDir' 'F:/PROJECT-1/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'tests/**/*' in 'F:/PROJECT-1/backend/tsconfig.json'

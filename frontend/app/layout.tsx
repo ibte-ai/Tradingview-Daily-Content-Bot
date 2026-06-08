@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import Link from "next/link";
+import Sidebar from "./components/Sidebar";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,36 +33,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
       </body>
     </html>
-  );
-}
-
-function Sidebar() {
-  const links = [
-    { href: "/", icon: "📊", label: "Dashboard" },
-    { href: "/posts", icon: "📝", label: "Post Queue" },
-    { href: "/capture", icon: "📸", label: "Capture" },
-    { href: "/logs", icon: "📋", label: "Audit Logs" },
-    { href: "/settings", icon: "⚙️", label: "Settings" },
-  ];
-
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="sidebar-brand-icon">📈</div>
-        <span className="sidebar-brand-name">ChartPost</span>
-      </div>
-      <nav className="sidebar-nav">
-        {links.map((link) => (
-          <Link key={link.href} href={link.href} className="sidebar-link">
-            <span className="sidebar-link-icon">{link.icon}</span>
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      <div style={{ padding: "var(--space-md)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-        v1.0.0 — AI Automation
-      </div>
-    </aside>
   );
 }
 

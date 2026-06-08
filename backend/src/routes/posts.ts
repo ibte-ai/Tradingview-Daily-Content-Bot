@@ -339,4 +339,200 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
+/**
+ * POST /api/posts/:id/publish-direct — Synchronous publishing.
+ *
+ * Publishes to selected platforms directly (no Redis/BullMQ queue).
+ * Provides immediate success/failure feedback.
+ */
+router.post(
+  '/:id/publish-direct',
+  publishLimiter,
+  validateBody(PublishRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const supabase = getSupabaseClient();
+      const { id } = req.params;
+      const { platforms, whatsappRecipient } = req.body;
+
+      // Fetch post
+      const { data: post, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !post) {
+        res.status(404).json({ error: 'Post not found' });
+        return;
+      }
+
+      if (!['approved', 'pending_review', 'partially_published'].includes(post.status)) {
+        res.status(400).json({
+          error: 'Post cannot be published in its current state',
+          currentStatus: post.status,
+        });
+        return;
+      }
+
+      if (!post.screenshot_url) {
+        res.status(400).json({ error: 'Post has no screenshot. Cannot publish.' });
+        return;
+      }
+
+      // Generate platform captions
+      let captions = { facebook: post.caption, instagram: post.caption, whatsapp: post.caption };
+      if (post.ai_analysis) {
+        captions = generatePlatformCaptions(post.ai_analysis, post.symbol, post.risk_note);
+      }
+
+      // Auto-approve if in pending_review
+      if (post.status === 'pending_review') {
+        await supabase.from('posts').update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+        }).eq('id', id);
+
+        await supabase.from('audit_logs').insert({
+          post_id: id,
+          action: 'post_auto_approved',
+          details: { reason: 'direct_publish' },
+          status: 'success',
+        });
+      }
+
+      // Update to publishing
+      await supabase.from('posts').update({ status: 'publishing' }).eq('id', id);
+
+      // Publish to each platform synchronously
+      const { publishToFacebook } = await import('../services/facebook.service');
+      const { publishToInstagram } = await import('../services/instagram.service');
+      const { sendWhatsAppMessage, generateWhatsAppShareLink } = await import('../services/whatsapp.service');
+
+      const results: Record<string, any> = {};
+      const publishedPlatforms = (post.published_platforms as Record<string, unknown>) || {};
+
+      for (const platform of platforms) {
+        const caption = (captions as any)[platform] || post.caption || '';
+
+        try {
+          switch (platform) {
+            case 'facebook': {
+              const fbResult = await publishToFacebook(post.screenshot_url, caption);
+              results[platform] = {
+                status: 'success',
+                postId: fbResult.postId,
+                postUrl: fbResult.postUrl,
+              };
+              publishedPlatforms[platform] = {
+                platform: 'facebook',
+                status: 'success',
+                postId: fbResult.postId,
+                postUrl: fbResult.postUrl,
+                publishedAt: new Date().toISOString(),
+              };
+              break;
+            }
+
+            case 'instagram': {
+              const igResult = await publishToInstagram(post.screenshot_url, caption);
+              results[platform] = {
+                status: 'success',
+                postId: igResult.postId,
+                postUrl: igResult.postUrl,
+              };
+              publishedPlatforms[platform] = {
+                platform: 'instagram',
+                status: 'success',
+                postId: igResult.postId,
+                postUrl: igResult.postUrl,
+                publishedAt: new Date().toISOString(),
+              };
+              break;
+            }
+
+            case 'whatsapp': {
+              if (whatsappRecipient) {
+                const waResult = await sendWhatsAppMessage(whatsappRecipient, post.screenshot_url, caption);
+                results[platform] = {
+                  status: 'success',
+                  messageId: waResult.messageId,
+                };
+                publishedPlatforms[platform] = {
+                  platform: 'whatsapp',
+                  status: 'success',
+                  messageId: waResult.messageId,
+                  publishedAt: new Date().toISOString(),
+                };
+              } else {
+                const shareLink = generateWhatsAppShareLink(caption);
+                results[platform] = {
+                  status: 'success',
+                  shareLink,
+                  note: 'WhatsApp Channel posting is not supported via API. Use the share link for manual posting.',
+                };
+                publishedPlatforms[platform] = {
+                  platform: 'whatsapp',
+                  status: 'success',
+                  shareLink,
+                  note: 'Share link generated for manual posting.',
+                  publishedAt: new Date().toISOString(),
+                };
+              }
+              break;
+            }
+          }
+
+          // Audit success
+          await supabase.from('audit_logs').insert({
+            post_id: id,
+            action: `published_${platform}`,
+            details: results[platform],
+            status: 'success',
+          });
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          results[platform] = {
+            status: 'failed',
+            errorMessage: errorMsg,
+          };
+          publishedPlatforms[platform] = {
+            platform,
+            status: 'failed',
+            errorMessage: errorMsg,
+          };
+
+          // Audit failure
+          await supabase.from('audit_logs').insert({
+            post_id: id,
+            action: `publish_failed_${platform}`,
+            status: 'failure',
+            error_message: errorMsg,
+          });
+        }
+      }
+
+      // Determine overall status
+      const allResults = Object.values(results);
+      const allSuccess = allResults.every((r: any) => r.status === 'success');
+      const someSuccess = allResults.some((r: any) => r.status === 'success');
+      const newStatus = allSuccess ? 'published' : someSuccess ? 'partially_published' : 'failed';
+
+      await supabase.from('posts').update({
+        published_platforms: publishedPlatforms,
+        status: newStatus,
+        published_at: allSuccess ? new Date().toISOString() : null,
+      }).eq('id', id);
+
+      res.json({
+        message: `Publishing complete: ${Object.entries(results).map(([p, r]: [string, any]) => `${p}: ${r.status}`).join(', ')}`,
+        results,
+        status: newStatus,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;
