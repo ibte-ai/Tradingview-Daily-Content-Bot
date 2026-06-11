@@ -22,10 +22,19 @@ const envSchema = z.object({
 
   // Redis (optional — workers disabled if not available)
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  REDIS_HOST: z.string().optional(),
+  REDIS_PORT: z.coerce.number().optional(),
+  REDIS_PASSWORD: z.string().optional(),
+  REDIS_USERNAME: z.string().optional(),
+  REDIS_TLS: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
 
   // TradingView
   TV_SESSION_ID: z.string().optional(),
   TV_SESSION_ID_SIGN: z.string().optional(),
+  TRADINGVIEW_USERNAME: z.string().optional(),
+  TRADINGVIEW_PASSWORD: z.string().optional(),
 
   // AI Models
   GEMINI_API_KEY: z.string().optional(),

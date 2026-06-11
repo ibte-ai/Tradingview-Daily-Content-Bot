@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Sidebar from "./components/Sidebar";
+import Header from "./components/Header";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,18 +34,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
       </body>
     </html>
-  );
-}
-
-function Header() {
-  return (
-    <header className="header">
-      <div className="header-title">AI Chart Automation</div>
-      <div className="header-actions">
-        <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-        </span>
-      </div>
-    </header>
   );
 }

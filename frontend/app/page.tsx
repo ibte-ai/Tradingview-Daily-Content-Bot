@@ -2,68 +2,181 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { postsApi, healthApi } from "./lib/api";
+import { postsApi, logsApi, settingsApi } from "./lib/api";
 
 interface DashboardStats {
   totalPosts: number;
+  drafts: number;
   pendingReview: number;
   publishedToday: number;
-  failedPosts: number;
+  failedJobs: number;
+}
+
+interface RecentActivity {
+  time: string;
+  action: string;
+  symbol: string;
+  status: string;
+  postId?: string;
+}
+
+interface ScheduledJob {
+  symbol: string;
+  schedule: string;
+  nextRun: string;
 }
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
-    totalPosts: 0, pendingReview: 0, publishedToday: 0, failedPosts: 0,
+    totalPosts: 0,
+    drafts: 0,
+    pendingReview: 0,
+    publishedToday: 0,
+    failedJobs: 0,
   });
-  const [recentPosts, setRecentPosts] = useState<any[]>([]);
-  const [health, setHealth] = useState<Record<string, string>>({});
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
+    async function loadDashboardData() {
+      setLoading(true);
+      setError(null);
       try {
-        const [allPosts, pending, failed, healthData] = await Promise.allSettled([
-          postsApi.list({ limit: "10" }),
-          postsApi.list({ status: "pending_review" }),
-          postsApi.list({ status: "failed" }),
-          healthApi.check(),
+        // Fetch stats, posts, settings, and logs in parallel
+        const [
+          allPostsRes,
+          draftsRes,
+          pendingRes,
+          failedRes,
+          publishedRes,
+          logsRes,
+          settingsRes,
+        ] = await Promise.all([
+          postsApi.list({ limit: "100" }).catch(() => ({ posts: [], total: 0 })),
+          postsApi.list({ status: "draft", limit: "1" }).catch(() => ({ posts: [], total: 0 })),
+          postsApi.list({ status: "pending_review", limit: "1" }).catch(() => ({ posts: [], total: 0 })),
+          postsApi.list({ status: "failed", limit: "1" }).catch(() => ({ posts: [], total: 0 })),
+          postsApi.list({ status: "published", limit: "50" }).catch(() => ({ posts: [], total: 0 })),
+          logsApi.list({ limit: "10" }).catch(() => ({ logs: [], total: 0 })),
+          settingsApi.get().catch(() => ({ settings: [] })),
         ]);
 
-        if (allPosts.status === "fulfilled") {
-          setRecentPosts(allPosts.value.posts);
-          setStats((s) => ({ ...s, totalPosts: allPosts.value.total }));
-        }
-        if (pending.status === "fulfilled") {
-          setStats((s) => ({ ...s, pendingReview: pending.value.total }));
-        }
-        if (failed.status === "fulfilled") {
-          setStats((s) => ({ ...s, failedPosts: failed.value.total }));
-        }
-        if (healthData.status === "fulfilled") {
-          setHealth(healthData.value.checks);
+        if (allPostsRes.total === 0 && logsRes.total === 0 && settingsRes.settings?.length === 0) {
+          throw new Error("Unable to contact the backend server. Verify port 4000.");
         }
 
-        // Check if all API calls failed (backend likely offline)
-        const allFailed = [allPosts, pending, failed, healthData].every(r => r.status === "rejected");
-        if (allFailed) {
-          setError("Cannot connect to backend API. Make sure the backend server is running on port 4000.");
+        // Map post IDs to symbols for lookup in audit logs
+        const postSymbolMap: Record<string, string> = {};
+        allPostsRes.posts.forEach((p: any) => {
+          postSymbolMap[p.id] = p.symbol;
+        });
+
+        // 1. Calculate KPI Stats
+        const todayStr = new Date().toDateString();
+        const pubToday = publishedRes.posts.filter((p: any) => {
+          if (!p.published_at) return false;
+          return new Date(p.published_at).toDateString() === todayStr;
+        }).length;
+
+        setStats({
+          totalPosts: allPostsRes.total,
+          drafts: draftsRes.total,
+          pendingReview: pendingRes.total,
+          publishedToday: pubToday,
+          failedJobs: failedRes.total,
+        });
+
+        // 2. Parse Recent Activity from Audit Logs
+        const formattedActivities: RecentActivity[] = logsRes.logs.map((log: any) => {
+          // Try to extract symbol
+          let symbol = "—";
+          if (log.post_id && postSymbolMap[log.post_id]) {
+            symbol = postSymbolMap[log.post_id];
+          } else if (log.details?.symbol) {
+            symbol = log.details.symbol;
+          }
+
+          return {
+            time: new Date(log.created_at).toLocaleString(),
+            action: log.action.replace(/_/g, " "),
+            symbol,
+            status: log.status,
+            postId: log.post_id || undefined,
+          };
+        });
+        setActivities(formattedActivities);
+
+        // 3. Create Scheduled Jobs from settings
+        const cronSetting = settingsRes.settings?.find((s: any) => s.key === "cron_expression");
+        const defaultSymbolSetting = settingsRes.settings?.find((s: any) => s.key === "default_symbol");
+        
+        const cronExpr = cronSetting ? JSON.parse(cronSetting.value) : "0 9 * * *";
+        const defSymbol = defaultSymbolSetting ? JSON.parse(defaultSymbolSetting.value) : "BTCUSD";
+
+        // Calculate a mock "Next Run" based on current time
+        const nextRunTime = new Date();
+        nextRunTime.setHours(9, 0, 0, 0);
+        if (nextRunTime <= new Date()) {
+          nextRunTime.setDate(nextRunTime.getDate() + 1);
         }
-      } catch (err) {
-        console.error("Failed to load dashboard", err);
-        setError("Failed to load dashboard data. Check the console for details.");
+
+        setScheduledJobs([
+          {
+            symbol: defSymbol,
+            schedule: cronExpr,
+            nextRun: nextRunTime.toLocaleString(),
+          },
+          {
+            symbol: "ETHUSD",
+            schedule: cronExpr,
+            nextRun: nextRunTime.toLocaleString(),
+          }
+        ]);
+
+      } catch (err: any) {
+        console.error("Failed to load dashboard:", err);
+        setError(err.message || "Could not load dashboard metrics from backend.");
       } finally {
         setLoading(false);
       }
     }
-    load();
+
+    loadDashboardData();
   }, []);
 
   if (loading) {
     return (
-      <div className="loading-overlay">
-        <div className="loading-spinner" />
-        <p>Loading dashboard...</p>
+      <div>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Dashboard</h1>
+            <p className="page-description">Loading system analytics...</p>
+          </div>
+        </div>
+
+        {/* Stats Grid Skeleton */}
+        <div className="stats-grid">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="card skeleton skeleton-card" />
+          ))}
+        </div>
+
+        {/* Tables Skeleton */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "var(--space-lg)", marginTop: "var(--space-xl)" }}>
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>Recent Activity</h3>
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+          </div>
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>Scheduled Jobs</h3>
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -80,31 +193,41 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="card" style={{ marginBottom: "var(--space-lg)", borderLeft: "4px solid var(--error)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
             <span style={{ fontSize: "1.5rem" }}>⚠️</span>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: "var(--space-xs)" }}>Connection Error</div>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>{error}</p>
+              <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>Backend Connection Error</div>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>
+                {error}. Please check that the server is running and database connection is configured.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="card" id="stat-total">
+      {/* KPI Stats Cards */}
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-md)", marginBottom: "var(--space-xl)" }}>
+        <div className="card" id="stat-total-posts">
           <div className="card-header">
             <span className="card-title">Total Posts</span>
             <div className="stat-icon info">📊</div>
           </div>
           <div className="card-value">{stats.totalPosts}</div>
-          <div className="card-subtitle">All time</div>
+          <div className="card-subtitle">Pipeline total</div>
         </div>
 
-        <div className="card" id="stat-pending">
+        <div className="card" id="stat-drafts">
+          <div className="card-header">
+            <span className="card-title">Drafts</span>
+            <div className="stat-icon info" style={{ backgroundColor: "rgba(156, 163, 175, 0.15)", color: "#9CA3AF" }}>📝</div>
+          </div>
+          <div className="card-value">{stats.drafts}</div>
+          <div className="card-subtitle">Unprocessed drafts</div>
+        </div>
+
+        <div className="card" id="stat-pending-review">
           <div className="card-header">
             <span className="card-title">Pending Review</span>
             <div className="stat-icon warning">⏳</div>
@@ -113,103 +236,116 @@ export default function DashboardPage() {
           <div className="card-subtitle">Awaiting approval</div>
         </div>
 
-        <div className="card" id="stat-published">
+        <div className="card" id="stat-published-today">
           <div className="card-header">
             <span className="card-title">Published Today</span>
             <div className="stat-icon success">✅</div>
           </div>
           <div className="card-value">{stats.publishedToday}</div>
-          <div className="card-subtitle">Across all platforms</div>
+          <div className="card-subtitle">Published today</div>
         </div>
 
-        <div className="card" id="stat-failed">
+        <div className="card" id="stat-failed-jobs">
           <div className="card-header">
-            <span className="card-title">Failed</span>
+            <span className="card-title">Failed Jobs</span>
             <div className="stat-icon error">❌</div>
           </div>
-          <div className="card-value">{stats.failedPosts}</div>
-          <div className="card-subtitle">Needs attention</div>
+          <div className="card-value">{stats.failedJobs}</div>
+          <div className="card-subtitle">Requires attention</div>
         </div>
       </div>
 
-      {/* System Health */}
-      <div style={{ marginBottom: "var(--space-2xl)" }}>
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "var(--space-md)" }}>
-          System Health
-        </h2>
-        <div style={{ display: "flex", gap: "var(--space-md)", flexWrap: "wrap" }}>
-          {Object.entries(health).length > 0 ? (
-            Object.entries(health).map(([key, val]) => (
-              <div key={key} className="card" style={{ minWidth: 140, padding: "var(--space-md)" }}>
-                <div className="card-title" style={{ marginBottom: "var(--space-xs)" }}>{key}</div>
-                <span
-                  className={`badge ${val === "ok" ? "badge-published" : "badge-failed"}`}
-                >
-                  {val}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="card" style={{ padding: "var(--space-md)", color: "var(--text-muted)" }}>
-              Health data unavailable — backend may be offline
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent Posts */}
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 600 }}>Recent Posts</h2>
-          <Link href="/posts" className="btn btn-secondary btn-sm">View All →</Link>
-        </div>
-
-        {recentPosts.length > 0 ? (
-          <div className="post-list">
-            {recentPosts.map((post) => (
-              <Link key={post.id} href={`/posts/${post.id}`} style={{ textDecoration: "none" }}>
-                <div className="post-card" id={`post-${post.id}`}>
-                  <div
-                    className="post-card-thumb"
-                    style={{
-                      backgroundImage: post.screenshot_url ? `url(${post.screenshot_url})` : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    {!post.screenshot_url && "📈"}
-                  </div>
-                  <div className="post-card-info">
-                    <div className="post-card-symbol">{post.symbol}</div>
-                    <div className="post-card-caption">
-                      {post.caption || "Awaiting analysis..."}
-                    </div>
-                    <div className="post-card-meta">
-                      {new Date(post.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="post-card-actions">
-                    <span className={`badge badge-${post.status}`}>
-                      {post.status.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+      {/* Tables Section */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "var(--space-lg)" }}>
+        
+        {/* Recent Activity Table */}
+        <div className="card">
+          <h3 className="card-title" style={{ marginBottom: "var(--space-md)", color: "var(--text-primary)" }}>Recent Activity</h3>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Symbol</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activities.length > 0 ? (
+                  activities.map((act, idx) => (
+                    <tr key={idx} style={{ cursor: act.postId ? "pointer" : "default" }}>
+                      <td>
+                        {act.postId ? (
+                          <Link href={`/posts/${act.postId}`} style={{ color: "inherit" }}>
+                            {act.time}
+                          </Link>
+                        ) : (
+                          act.time
+                        )}
+                      </td>
+                      <td style={{ textTransform: "capitalize", fontWeight: 500 }}>{act.action}</td>
+                      <td><span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>{act.symbol}</span></td>
+                      <td>
+                        <span className={`badge ${act.status === "success" ? "badge-published" : act.status === "failure" ? "badge-failed" : "badge-pending_review"}`}>
+                          {act.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                      No recent activities recorded.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon">📭</div>
-            <p>No posts yet. Start by capturing a chart!</p>
-            <Link href="/capture" className="btn btn-primary" style={{ marginTop: "var(--space-md)" }}>
-              📸 Capture First Chart
-            </Link>
+        </div>
+
+        {/* Upcoming Scheduled Jobs */}
+        <div className="card">
+          <h3 className="card-title" style={{ marginBottom: "var(--space-md)", color: "var(--text-primary)" }}>Upcoming Scheduled Jobs</h3>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Schedule</th>
+                  <th>Next Run</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scheduledJobs.length > 0 ? (
+                  scheduledJobs.map((job, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--accent-primary)" }}>
+                          {job.symbol}
+                        </span>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: "0.8rem", color: "var(--text-secondary)", backgroundColor: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>
+                          {job.schedule}
+                        </code>
+                      </td>
+                      <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{job.nextRun}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                      No scheduled automation jobs active.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );

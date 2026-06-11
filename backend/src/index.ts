@@ -8,6 +8,7 @@ import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimiter';
 import { isRedisAvailable } from './config/redis';
+import { startCronScheduler } from './services/cron.service';
 
 // Routes
 import healthRoutes from './routes/health';
@@ -68,6 +69,9 @@ const server = app.listen(PORT, () => {
 
   // Start workers (only if Redis is potentially available)
   startWorkersIfPossible();
+
+  // Start daily cron automation scheduler
+  startCronScheduler();
 });
 
 async function startWorkersIfPossible() {

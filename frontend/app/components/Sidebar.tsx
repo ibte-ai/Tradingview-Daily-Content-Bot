@@ -8,9 +8,11 @@ export default function Sidebar() {
   
   const links = [
     { href: "/", icon: "📊", label: "Dashboard" },
-    { href: "/posts", icon: "📝", label: "Post Queue" },
+    { href: "/posts", icon: "📝", label: "Posts Queue" },
     { href: "/capture", icon: "📸", label: "Capture" },
-    { href: "/logs", icon: "📋", label: "Audit Logs" },
+    { href: "/analysis", icon: "🧠", label: "AI Analysis" },
+    { href: "/publishing", icon: "🚀", label: "Publishing" },
+    { href: "/logs", icon: "📋", label: "Logs" },
     { href: "/settings", icon: "⚙️", label: "Settings" },
   ];
 

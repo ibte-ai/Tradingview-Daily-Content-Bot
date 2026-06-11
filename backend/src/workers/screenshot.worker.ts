@@ -4,6 +4,7 @@ import { logger } from '../config/logger';
 import { captureScreenshot } from '../services/screenshot.service';
 import { uploadImage } from '../services/cloudinary.service';
 import { getSupabaseClient } from '../config/database';
+import { uploadScreenshotToSupabase } from '../services/supabase.service';
 
 const QUEUE_NAME = 'screenshot-queue';
 
@@ -63,14 +64,14 @@ export function startScreenshotWorker(): Worker {
       // Capture screenshot
       const result = await captureScreenshot({ symbol, chartUrl });
 
-      // Upload to Cloudinary
-      const uploadResult = await uploadImage(result.localPath);
+      // Upload to Supabase Storage
+      const publicUrl = await uploadScreenshotToSupabase(result.localPath, result.fileName);
 
       // Update post with screenshot details
       await supabase
         .from('posts')
         .update({
-          screenshot_url: uploadResult.secureUrl,
+          screenshot_url: publicUrl,
           screenshot_local_path: result.localPath,
           status: 'analyzing',
         })
@@ -82,15 +83,14 @@ export function startScreenshotWorker(): Worker {
         action: 'screenshot_captured',
         details: {
           fileName: result.fileName,
-          cloudinaryUrl: uploadResult.secureUrl,
-          publicId: uploadResult.publicId,
+          supabaseUrl: publicUrl,
         },
         status: 'success',
       });
 
-      logger.info('Screenshot job completed', { postId, url: uploadResult.secureUrl });
+      logger.info('Screenshot job completed', { postId, url: publicUrl });
 
-      return { postId, screenshotUrl: uploadResult.secureUrl };
+      return { postId, screenshotUrl: publicUrl };
     },
     {
       connection: getRedisConnectionOpts() as any,

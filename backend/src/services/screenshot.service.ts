@@ -70,15 +70,23 @@ export async function captureScreenshot(options: ScreenshotOptions): Promise<Scr
           ],
         });
 
-        const context: BrowserContext = await browser.newContext({
+        const authPath = path.resolve(process.cwd(), 'storage/playwright/auth.json');
+        const contextOptions: any = {
           viewport,
           userAgent:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
           locale: 'en-US',
-        });
+        };
 
-        // Inject TradingView session cookies if available
-        if (env.TV_SESSION_ID && env.TV_SESSION_ID_SIGN) {
+        if (fs.existsSync(authPath)) {
+          contextOptions.storageState = authPath;
+          logger.info(`Reusing saved TradingView session state from ${authPath}`);
+        }
+
+        const context: BrowserContext = await browser.newContext(contextOptions);
+
+        // Inject TradingView session cookies if available and not using auth state
+        if (!contextOptions.storageState && env.TV_SESSION_ID && env.TV_SESSION_ID_SIGN) {
           await context.addCookies([
             {
               name: 'sessionid',
@@ -94,8 +102,8 @@ export async function captureScreenshot(options: ScreenshotOptions): Promise<Scr
             },
           ]);
           logger.debug('TradingView session cookies injected');
-        } else {
-          logger.warn('TradingView session cookies not configured — using public access (may show delayed data)');
+        } else if (!contextOptions.storageState) {
+          logger.warn('TradingView session credentials not configured — using public access (may show delayed data)');
         }
 
         const page: Page = await context.newPage();

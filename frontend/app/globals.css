@@ -6,30 +6,31 @@
 /* ─── CSS Custom Properties ─── */
 :root {
   /* Colors */
-  --bg-primary: #060918;
-  --bg-secondary: #0a0e27;
-  --bg-card: rgba(15, 20, 50, 0.7);
-  --bg-card-hover: rgba(20, 28, 65, 0.8);
+  --bg-primary: #0A0A0A;
+  --bg-secondary: #111827;
+  --bg-card: #1F2937;
+  --bg-card-hover: #263143;
   --bg-glass: rgba(255, 255, 255, 0.03);
-  --bg-glass-border: rgba(255, 255, 255, 0.06);
+  --bg-glass-border: #374151;
+  --borders: #374151;
 
-  --accent-primary: #6366f1;
-  --accent-primary-glow: rgba(99, 102, 241, 0.3);
-  --accent-secondary: #22d3ee;
-  --accent-secondary-glow: rgba(34, 211, 238, 0.2);
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  --accent-primary: #3B82F6;
+  --accent-primary-glow: rgba(59, 130, 246, 0.25);
+  --accent-secondary: #60A5FA;
+  --accent-secondary-glow: rgba(96, 165, 250, 0.15);
+  --accent-gradient: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
 
-  --success: #22c55e;
+  --success: #22C55E;
   --success-bg: rgba(34, 197, 94, 0.1);
-  --warning: #f59e0b;
+  --warning: #F59E0B;
   --warning-bg: rgba(245, 158, 11, 0.1);
-  --error: #ef4444;
+  --error: #EF4444;
   --error-bg: rgba(239, 68, 68, 0.1);
-  --info: #3b82f6;
+  --info: #3B82F6;
   --info-bg: rgba(59, 130, 246, 0.1);
 
   /* Typography */
@@ -47,15 +48,15 @@
   /* Borders */
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 30px var(--accent-primary-glow);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 20px var(--accent-primary-glow);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -63,7 +64,7 @@
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Layout */
-  --sidebar-width: 260px;
+  --sidebar-width: 280px;
   --header-height: 64px;
 }
 
@@ -456,4 +457,207 @@ tr:hover { background: var(--bg-glass); }
 .platform-publish-result.error .btn {
   align-self: flex-end;
 }
+
+/* ─── Platform Custom Buttons ─── */
+.btn-facebook {
+  background-color: #1877F2;
+  color: #FFFFFF;
+}
+.btn-facebook:hover {
+  background-color: #166FE5;
+  box-shadow: 0 0 15px rgba(24, 119, 242, 0.4);
+}
+
+.btn-instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #FFFFFF;
+}
+.btn-instagram:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 15px rgba(220, 39, 67, 0.4);
+}
+
+.btn-whatsapp {
+  background-color: #22C55E;
+  color: #FFFFFF;
+}
+.btn-whatsapp:hover {
+  background-color: #16A34A;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+}
+
+.btn-publish-all {
+  background: var(--accent-gradient);
+  color: #FFFFFF;
+  box-shadow: 0 0 15px var(--accent-primary-glow);
+}
+.btn-publish-all:hover {
+  box-shadow: 0 0 25px var(--accent-primary-glow);
+}
+
+/* ─── Confirmation Modal ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-container {
+  background-color: var(--bg-card);
+  border: 1px solid var(--borders);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 480px;
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.modal-body {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xl);
+  line-height: 1.5;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ─── Skeleton Loaders ─── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: var(--space-sm);
+}
+.skeleton-text.title {
+  height: 24px;
+  width: 60%;
+  margin-bottom: var(--space-md);
+}
+.skeleton-text.subtitle {
+  height: 16px;
+  width: 40%;
+  margin-bottom: var(--space-lg);
+}
+
+.skeleton-card {
+  height: 140px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton-thumb {
+  height: 68px;
+  width: 120px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-row {
+  height: 48px;
+  width: 100%;
+  margin-bottom: var(--space-xs);
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ─── Status Indicator ─── */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.connected {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.status-dot.capturing {
+  background-color: var(--warning);
+  animation: pulse-dot 1.5s infinite;
+  box-shadow: 0 0 8px var(--warning);
+}
+
+.status-dot.publishing {
+  background-color: var(--accent-primary);
+  animation: pulse-dot 1.5s infinite;
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.status-dot.error {
+  background-color: var(--error);
+  box-shadow: 0 0 8px var(--error);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #3B82F6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 2px solid var(--borders);
+}
+
 

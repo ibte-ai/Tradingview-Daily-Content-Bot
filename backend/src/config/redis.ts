@@ -12,21 +12,44 @@ export function isRedisAvailable(): boolean {
 export function getRedisClient(): Redis {
   if (redisClient) return redisClient;
 
-  redisClient = new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null, // Required by BullMQ
-    enableReadyCheck: true,
-    lazyConnect: true, // Don't connect immediately — connect on first use
-    retryStrategy(times: number) {
-      if (times > 5) {
-        logger.warn('Redis: max retries reached, stopping reconnection');
-        redisAvailable = false;
-        return null; // Stop retrying
-      }
-      const delay = Math.min(times * 500, 5000);
-      logger.warn(`Redis connection retry #${times}, waiting ${delay}ms`);
-      return delay;
-    },
-  });
+  if (env.REDIS_HOST) {
+    redisClient = new Redis({
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      password: env.REDIS_PASSWORD,
+      username: env.REDIS_USERNAME || 'default',
+      tls: env.REDIS_TLS ? {} : undefined,
+      maxRetriesPerRequest: null,
+      enableReadyCheck: true,
+      lazyConnect: true, // Don't connect immediately — connect on first use
+      retryStrategy(times: number) {
+        if (times > 5) {
+          logger.warn('Redis: max retries reached, stopping reconnection');
+          redisAvailable = false;
+          return null; // Stop retrying
+        }
+        const delay = Math.min(times * 500, 5000);
+        logger.warn(`Redis connection retry #${times}, waiting ${delay}ms`);
+        return delay;
+      },
+    });
+  } else {
+    redisClient = new Redis(env.REDIS_URL, {
+      maxRetriesPerRequest: null, // Required by BullMQ
+      enableReadyCheck: true,
+      lazyConnect: true, // Don't connect immediately — connect on first use
+      retryStrategy(times: number) {
+        if (times > 5) {
+          logger.warn('Redis: max retries reached, stopping reconnection');
+          redisAvailable = false;
+          return null; // Stop retrying
+        }
+        const delay = Math.min(times * 500, 5000);
+        logger.warn(`Redis connection retry #${times}, waiting ${delay}ms`);
+        return delay;
+      },
+    });
+  }
 
   redisClient.on('connect', () => {
     redisAvailable = true;
@@ -62,6 +85,23 @@ export function getRedisClient(): Redis {
  * BullMQ manages its own ioredis instances internally.
  */
 export function getRedisConnectionOpts() {
+  if (env.REDIS_HOST) {
+    return {
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      password: env.REDIS_PASSWORD,
+      username: env.REDIS_USERNAME || 'default',
+      tls: env.REDIS_TLS ? {} : undefined,
+      maxRetriesPerRequest: null as null,
+      enableReadyCheck: true,
+      retryStrategy(times: number) {
+        if (times > 3) {
+          return null; // Stop retrying after 3 attempts
+        }
+        return Math.min(times * 1000, 3000);
+      }
+    };
+  }
   return {
     url: env.REDIS_URL,
     maxRetriesPerRequest: null as null,
@@ -83,3 +123,6 @@ export async function closeRedis(): Promise<void> {
     logger.info('Redis connection closed gracefully');
   }
 }
+
+// Export the singleton redis client for general use (e.g. queues)
+export const redis = getRedisClient();

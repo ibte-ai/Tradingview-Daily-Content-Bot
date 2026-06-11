@@ -15,6 +15,20 @@ const ALLOWED_SETTING_KEYS = new Set([
   'tv_session_id_sign',
   'risk_disclaimer',
   'default_platforms',
+  'ai_provider',
+  'model_name',
+  'temperature',
+  'max_tokens',
+  'tv_username',
+  'tv_password',
+  'default_symbol',
+  'default_timeframe',
+  'fb_enabled',
+  'ig_enabled',
+  'wa_enabled',
+  'cron_expression',
+  'timezone',
+  'retry_count',
 ]);
 
 /**
